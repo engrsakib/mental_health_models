@@ -8,11 +8,7 @@ import os
 import warnings
 
 # --- 1. SETUP & CONFIGURATION ---
-
-# সব ওয়ার্নিং ইগনোর করা হলো (যাতে টার্মিনাল ক্লিন থাকে)
 warnings.filterwarnings("ignore")
-
-# মডেল লোড করা
 model_path = 'mental_health_models.pkl'
 if os.path.exists(model_path):
     tuned_models = joblib.load(model_path)
@@ -21,20 +17,18 @@ else:
     print(f"❌ Error: '{model_path}' not found! Make sure it is in the root folder.")
     exit()
 
-# প্রশ্ন ম্যাপিং
 dep_cols = ['Q3A', 'Q5A', 'Q10A', 'Q13A', 'Q16A', 'Q17A', 'Q21A', 'Q24A', 'Q26A', 'Q31A', 'Q34A', 'Q37A', 'Q38A', 'Q42A']
 anx_cols = ['Q2A', 'Q4A', 'Q7A', 'Q9A', 'Q15A', 'Q19A', 'Q20A', 'Q23A', 'Q25A', 'Q28A', 'Q30A', 'Q36A', 'Q40A', 'Q41A']
 str_cols = ['Q1A', 'Q6A', 'Q8A', 'Q11A', 'Q12A', 'Q14A', 'Q18A', 'Q22A', 'Q27A', 'Q29A', 'Q32A', 'Q33A', 'Q35A', 'Q39A']
 
 # --- 2. REPORT GENERATOR FUNCTION ---
 def generate_premium_report(name, age, gender, depression, anxiety, stress):
-    # Canvas Setup (1200x1400)
+   
     width, height = 1200, 1400
     bg_color = (255, 255, 255)
     img = Image.new('RGBA', (width, height), color=bg_color)
     draw = ImageDraw.Draw(img)
     
-    # Fonts Loading (Windows Compatible)
     try:
         font_b = ImageFont.truetype("arial.ttf", 60)
         font_r = ImageFont.truetype("arial.ttf", 30)
@@ -93,15 +87,15 @@ def generate_premium_report(name, age, gender, depression, anxiety, stress):
         draw.rectangle([(50, row_y), (width-50, row_y+120)], fill=bg)
         
         if result in ['Normal', 'Mild']:
-            color = "#27ae60" # Green
+            color = "#27ae60" 
             status = "Low Risk"
             fill_pct = 0.25
         elif result == 'Moderate':
-            color = "#d35400" # Orange
+            color = "#d35400" 
             status = "Monitoring Req."
             fill_pct = 0.55
         else:
-            color = "#c0392b" # Red
+            color = "#c0392b" 
             status = "High Risk"
             fill_pct = 0.90
             
@@ -132,7 +126,7 @@ def generate_premium_report(name, age, gender, depression, anxiety, stress):
             icon = icon.resize((210, 210))
             stamp_img.paste(icon, (15, 15), icon)
         else:
-            # Fallback if image missing
+           
             ds = ImageDraw.Draw(stamp_img)
             ds.text((50, 100), "VERIFIED", font=f_label, fill="blue")
     except Exception as e:
@@ -264,7 +258,7 @@ with gr.Blocks(theme=theme, title="AI Mental Health System") as demo:
         # OUTPUT
         with gr.Column(scale=5):
             gr.Markdown("### 📄 Final Diagnostic Report")
-            # show_download_button রিমুভ করা হয়েছে যাতে এরর না দেয়
+           
             out_img = gr.Image(label="Clinical Report", type="pil")
 
     all_inputs = [i_name, i_age, i_gender] + inputs_list
