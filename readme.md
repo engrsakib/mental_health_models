@@ -8,21 +8,18 @@
 ---
 
 ## Overview
-This repository contains an AI-powered diagnostic system that predicts severity levels of Depression, Anxiety, and Stress using the DASS-42 questionnaire. The system accepts user responses, runs inference with a pre-trained model, and generates a professional clinical-style report card (including a verified stamp and signature images).
+This repository implements an AI-driven diagnostic system that predicts severity levels of Depression, Anxiety, and Stress using responses derived from the DASS-42 instrument. The system runs inference with a pre-trained model and generates a professional clinical-style report (including verified stamp and signature images).
 
-Key points:
-- Primary language & tools: Python, Scikit-learn, Gradio, Pillow (PIL)
-- Model file: `mental_health_models.pkl` (large — do not upload to GitHub)
-- Author: Md. Nazmus Sakib
+Author: Md. Nazmus Sakib (GitHub: @engrsakib)
 
 ---
 
 ## Key Features
-- Interactive UI built with Gradio for quick, user-friendly assessments
-- Verified report generation (downloadable image/pdf with stamp & signature)
-- Class imbalance handling via SMOTETomek during preprocessing
-- Real-time assessment using 22 clinical questions derived from DASS-42
-- Model interpretability support (optional integration with SHAP / LIME)
+- Interactive Gradio UI for quick, user-friendly assessments  
+- Downloadable verified report (stamp + signature) generated with Pillow (PIL)  
+- Class imbalance handling using SMOTETomek during preprocessing  
+- Real-time evaluation based on 22 clinical questions derived from DASS-42  
+- Optional interpretability support (SHAP / LIME) for global and local explanations
 
 ---
 
@@ -39,13 +36,15 @@ Mental_Health_Project/
 ├── mental_health_models.pkl    # Trained model (DO NOT upload to GitHub)
 ├── requirements.txt            # Python dependencies
 ├── .gitignore                  # Files to be ignored by Git
-└── README.md                   # Project documentation (this file)
+└── README.md                   # Project documentation
 ```
 
 ---
 
-## .gitignore (Recommended)
-Make sure your repository ignores environment files and large model artifacts. Example entries:
+## Important: Large Files & Git
+Do NOT commit the trained model file (`mental_health_models.pkl`) or the virtual environment directory to the repository. Use the `.gitignore` entries below to prevent accidental commits.
+
+Recommended `.gitignore` entries:
 ```text
 # Python cache files
 __pycache__/
@@ -70,16 +69,17 @@ env/
 ---
 
 ## Dataset & Training (Summary)
-- Dataset: DASS-42 (Depression Anxiety Stress Scales)
-- Preprocessing steps:
-  - Remove or impute null values and clean the dataset
-  - Apply SMOTETomek to handle class imbalance
-  - Feature scaling (Standardization / Z-score) and label encoding as needed
-  - Optionally create polynomial interaction features to capture non-linear relationships
-- Model training:
-  - Multiple algorithms were evaluated (e.g., Logistic Regression, Random Forest, LightGBM)
-  - Logistic Regression produced the best/balanced results during development (update reported metrics based on your final experiments)
-  - Example reported accuracy: ~99.2% (please replace with your verified final results)
+- Dataset: DASS-42 (Depression Anxiety Stress Scales)  
+- Preprocessing:
+  - Clean missing values and standardize inputs
+  - Handle class imbalance using SMOTETomek
+  - Feature scaling (Standardization / Z-score)
+  - Label encoding as required
+  - Optionally add polynomial interaction features to capture non-linear relationships
+- Model development:
+  - Multiple algorithms evaluated (e.g., Logistic Regression, Random Forest, LightGBM)
+  - Final inference uses a trained model saved as `mental_health_models.pkl`
+  - Record and report final evaluation metrics (accuracy, precision, recall, F1, confusion matrix)
 
 ---
 
@@ -103,9 +103,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Ensure the trained model file `mental_health_models.pkl` is available locally (do not push it to GitHub). If you store it remotely (e.g., Google Drive, Hugging Face), update `app.py` to load from that path.
+3. Ensure the trained model file `mental_health_models.pkl` is available locally or configure `app.py` to load it from external storage (e.g., Google Drive, S3, Hugging Face).
 
-4. Run the application:
+4. Start the application:
 ```bash
 python app.py
 ```
@@ -113,66 +113,47 @@ Open the Gradio URL printed in the console (commonly `http://127.0.0.1:7860`) to
 
 ---
 
-## Deployment Tips
-- For small public demos, consider deploying the UI to Hugging Face Spaces (Gradio) or a simple Cloud VM.
-- Do not commit large binary model files to Git. Use external storage (Google Drive, AWS S3, Hugging Face Hub) and load them at runtime.
-- If deploying on a shared service, secure any private datasets and credentials via environment variables.
+## Deployment Recommendations
+- Host the Gradio app on Hugging Face Spaces or a cloud VM for public demos.  
+- Store large binary artifacts in external storage (Google Drive, AWS S3, Hugging Face Hub) and load them at runtime.  
+- Use environment variables for any credentials. Avoid committing secrets to the repository.
 
 ---
 
-## Reproducibility Notes
-- Include training scripts and a `train/` folder containing:
-  - `train.py` (training pipeline)
-  - `config.yaml` (hyperparameters and data paths)
-  - `requirements.txt` (matching environment used for training)
-- Provide a dataset source link and any instructions to prepare the dataset (e.g., mapping files, label definitions).
-- Save model metadata (training date, random seeds, cross-validation folds, final metrics) alongside the model artifacts.
+## Reproducibility & Artifacts
+To facilitate reproducibility, include the following in the repository or a separate `train/` folder:
+- `train.py` — training pipeline script  
+- `config.yaml` or `config.json` — hyperparameters and data paths  
+- `requirements.txt` — environment specification (precise versions)  
+- Model metadata (training date, random seed, CV folds, final metrics)  
 
 ---
 
 ## Interpretability & Clinical Traceability
-To support explainability in clinical contexts:
-- Integrate SHAP or LIME to produce both global and local explanations for model predictions.
-- Log feature contributions used for each generated report so clinicians can review why a decision was made.
-- Document any ethical considerations and limitations (bias, generalizability, required clinical oversight).
-
----
-
-## Example: Where to Store Large Models
-Recommended approaches:
-- Upload heavy model files to a cloud storage (Google Drive, AWS S3) and provide a loader function in `app.py` to download at runtime.
-- Use Hugging Face Model Hub or a private artifact repository if you want versioning and access control.
+- Integrate SHAP or LIME to produce explanation reports for each prediction.  
+- Log feature contributions for generated reports so clinicians can review decision rationale.  
+- Document ethical considerations, potential biases, and limits of generalizability.
 
 ---
 
 ## Requirements (example)
-Ensure `requirements.txt` contains packages used by the app:
-```text
+Ensure `requirements.txt` includes:
+```
 gradio
 scikit-learn
 pandas
 numpy
 imbalanced-learn
 pillow
-shap        # optional
-lime        # optional
+shap       # optional
+lime       # optional
 ```
-Adjust versions as needed for reproducibility.
+Pin versions as needed for reproducibility.
 
 ---
 
-## Credits & Contact
-- Developed by: Md. Nazmus Sakib  
-- Model artifact filename referenced in this repo: `mental_health_models.pkl` (keep it local / remote storage — do not commit)
+## Credits
+Developed by Md. Nazmus Sakib — GitHub: @engrsakib
 
 ---
-
-## Final Notes
-- Before sharing the repository publicly, double-check `.gitignore` to ensure no sensitive data, credentials, or large binaries are committed.
-- Update reported metrics (accuracy, precision/recall, confusion matrices) in this README after final evaluation.
-- If you want, I can help:
-  - Polish `app.py` for secure remote model loading
-  - Prepare training scripts and a minimal Dockerfile for reproducible deployment
-  - Generate a short CONTRIBUTING.md or CHANGELOG.md
-
 ```
