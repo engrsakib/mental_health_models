@@ -1,268 +1,296 @@
-import gradio as gr
+import os
+import random
 import joblib
+import warnings
 import numpy as np
 import pandas as pd
+import gradio as gr
 from PIL import Image, ImageDraw, ImageFont
-import random
-import os
-import warnings
 
-# --- 1. SETUP & CONFIGURATION ---
+# --- CONFIGURATION & CONSTANTS ---
 warnings.filterwarnings("ignore")
-model_path = 'mental_health_models.pkl'
-if os.path.exists(model_path):
-    tuned_models = joblib.load(model_path)
-    print("✅ Model loaded successfully!")
+
+MODEL_PATH = 'mental_health_models.pkl'
+FONT_PATH = "arial.ttf"
+
+# Column groupings
+COLS_DEPRESSION = ['Q3A', 'Q5A', 'Q10A', 'Q13A', 'Q16A', 'Q17A', 'Q21A', 'Q24A', 'Q26A', 'Q31A', 'Q34A', 'Q37A', 'Q38A', 'Q42A']
+COLS_ANXIETY    = ['Q2A', 'Q4A', 'Q7A', 'Q9A', 'Q15A', 'Q19A', 'Q20A', 'Q23A', 'Q25A', 'Q28A', 'Q30A', 'Q36A', 'Q40A', 'Q41A']
+COLS_STRESS     = ['Q1A', 'Q6A', 'Q8A', 'Q11A', 'Q12A', 'Q14A', 'Q18A', 'Q22A', 'Q27A', 'Q29A', 'Q32A', 'Q33A', 'Q35A', 'Q39A']
+
+# Load Model safely
+if os.path.exists(MODEL_PATH):
+    tuned_models = joblib.load(MODEL_PATH)
+    print("✅ System ready: Models loaded.")
 else:
-    print(f"❌ Error: '{model_path}' not found! Make sure it is in the root folder.")
-    exit()
+    raise FileNotFoundError(f"❌ Model file '{MODEL_PATH}' missing! Please upload it.")
 
-dep_cols = ['Q3A', 'Q5A', 'Q10A', 'Q13A', 'Q16A', 'Q17A', 'Q21A', 'Q24A', 'Q26A', 'Q31A', 'Q34A', 'Q37A', 'Q38A', 'Q42A']
-anx_cols = ['Q2A', 'Q4A', 'Q7A', 'Q9A', 'Q15A', 'Q19A', 'Q20A', 'Q23A', 'Q25A', 'Q28A', 'Q30A', 'Q36A', 'Q40A', 'Q41A']
-str_cols = ['Q1A', 'Q6A', 'Q8A', 'Q11A', 'Q12A', 'Q14A', 'Q18A', 'Q22A', 'Q27A', 'Q29A', 'Q32A', 'Q33A', 'Q35A', 'Q39A']
+# --- HELPER FUNCTIONS ---
 
-# --- 2. REPORT GENERATOR FUNCTION ---
-def generate_premium_report(name, age, gender, depression, anxiety, stress):
-   
-    width, height = 1200, 1400
-    bg_color = (255, 255, 255)
-    img = Image.new('RGBA', (width, height), color=bg_color)
+def get_font(size, bold=False):
+    """Helper to load font safely, falls back to default if arial missing."""
+    try:
+        return ImageFont.truetype(FONT_PATH, size)
+    except OSError:
+        return ImageFont.load_default()
+
+def draw_text_block(draw, x, y, label, value, label_font, val_font, gap=40):
+    """Draws a label and its value below it."""
+    draw.text((x, y), label, font=label_font, fill="#486581")
+    draw.text((x, y + gap), str(value), font=val_font, fill="#102a43")
+
+# --- REPORT GENERATION ---
+
+def generate_report_image(name, age, gender, results):
+    # Layout Constants
+    W, H = 1200, 1400
+    MARGIN = 50
+    HEADER_H = 180
+    
+    # Colors
+    COLOR_BG = "white"
+    COLOR_PRIMARY = "#102a43"
+    COLOR_ACCENT = "#bcccdc"
+    
+    img = Image.new('RGBA', (W, H), color=COLOR_BG)
     draw = ImageDraw.Draw(img)
-    
-    try:
-        font_b = ImageFont.truetype("arial.ttf", 60)
-        font_r = ImageFont.truetype("arial.ttf", 30)
-        f_header = ImageFont.truetype("arial.ttf", 60)
-        f_sub = ImageFont.truetype("arial.ttf", 30)
-        f_label = ImageFont.truetype("arial.ttf", 26)
-        f_val = ImageFont.truetype("arial.ttf", 26)
-        f_stamp = ImageFont.truetype("arial.ttf", 55)
-        f_footer = ImageFont.truetype("arial.ttf", 22)
-    except:
-        font_b = ImageFont.load_default()
-        font_r = ImageFont.load_default()
-        f_header = ImageFont.load_default()
-        f_sub = ImageFont.load_default()
-        f_label = ImageFont.load_default()
-        f_val = ImageFont.load_default()
-        f_stamp = ImageFont.load_default()
-        f_footer = ImageFont.load_default()
 
-    # --- Header Design ---
-    draw.rectangle([(0, 0), (width, 180)], fill="#102a43")
+    # Load Fonts
+    f_title = get_font(60)
+    f_sub = get_font(30)
+    f_label = get_font(26)
+    f_val = get_font(26)
+    f_footer = get_font(22)
+
+    # 1. Header Section
+    draw.rectangle([(0, 0), (W, HEADER_H)], fill=COLOR_PRIMARY)
+    
+    # Logo Placeholder (Simple geometric shape)
     draw.ellipse([(60, 40), (140, 120)], fill="white")
-    draw.line([(90, 50), (110, 110)], fill="#102a43", width=5)
-    draw.line([(110, 50), (90, 110)], fill="#102a43", width=5)
+    draw.line([(90, 50), (110, 110)], fill=COLOR_PRIMARY, width=5)
+    draw.line([(110, 50), (90, 110)], fill=COLOR_PRIMARY, width=5)
     
-    draw.text((180, 50), "MENTAL HEALTH DIAGNOSTIC CENTER", font=f_header, fill="white")
-    draw.text((180, 120), "AI-Powered Advanced Clinical Assessment Report", font=f_sub, fill="#bcccdc")
+    draw.text((180, 50), "MENTAL HEALTH DIAGNOSTIC CENTER", font=f_title, fill="white")
+    draw.text((180, 120), "AI-Powered Advanced Clinical Assessment Report", font=f_sub, fill=COLOR_ACCENT)
     
-    date_str = pd.Timestamp.now().strftime('%d %B, %Y')
-    draw.text((width-300, 130), f"Date: {date_str}", font=f_val, fill="#bcccdc")
+    today = pd.Timestamp.now().strftime('%d %B, %Y')
+    draw.text((W - 300, 130), f"Date: {today}", font=f_val, fill=COLOR_ACCENT)
 
-    # --- Patient Information ---
-    draw.rectangle([(50, 220), (width-50, 350)], fill="#f0f4f8", outline="#d9e2ec", width=2)
-    draw.text((80, 240), "PATIENT NAME", font=f_label, fill="#486581")
-    draw.text((80, 280), str(name).upper(), font=f_header, fill="#102a43")
-    draw.text((600, 240), "AGE / GENDER", font=f_label, fill="#486581")
-    draw.text((600, 285), f"{int(age)} Years  |  {gender}", font=f_val, fill="#102a43")
-    draw.text((900, 240), "PATIENT ID", font=f_label, fill="#486581")
-    draw.text((900, 285), f"PID-{random.randint(1000,9999)}", font=f_val, fill="#102a43")
+    # 2. Patient Info Box
+    box_top = 220
+    draw.rectangle([(MARGIN, box_top), (W - MARGIN, box_top + 130)], fill="#f0f4f8", outline="#d9e2ec", width=2)
+    
+    draw_text_block(draw, 80, box_top + 20, "PATIENT NAME", str(name).upper(), f_label, f_title)
+    draw_text_block(draw, 600, box_top + 20, "AGE / GENDER", f"{int(age)} Years | {gender}", f_label, f_val, gap=45)
+    draw_text_block(draw, 900, box_top + 20, "PATIENT ID", f"PID-{random.randint(1000,9999)}", f_label, f_val, gap=45)
 
-    # --- Clinical Results ---
-    y_start = 420
-    draw.text((50, 390), "CLINICAL EVALUATION", font=f_label, fill="#102a43")
-    draw.line([(50, 415), (width-50, 415)], fill="#102a43", width=3)
+    # 3. Clinical Results Table
+    y_cursor = 420
+    draw.text((MARGIN, y_cursor - 30), "CLINICAL EVALUATION", font=f_label, fill=COLOR_PRIMARY)
+    draw.line([(MARGIN, y_cursor - 5), (W - MARGIN, y_cursor - 5)], fill=COLOR_PRIMARY, width=3)
+
+    # Table Header
+    draw.rectangle([(MARGIN, y_cursor), (W - MARGIN, y_cursor + 60)], fill="#334e68")
+    headers = [(80, "PARAMETER"), (500, "SEVERITY LEVEL"), (900, "STATUS")]
+    for x, text in headers:
+        draw.text((x, y_cursor + 15), text, font=f_label, fill="white")
     
-    draw.rectangle([(50, y_start), (width-50, y_start+60)], fill="#334e68")
-    draw.text((80, y_start+15), "PARAMETER", font=f_label, fill="white")
-    draw.text((500, y_start+15), "SEVERITY LEVEL", font=f_label, fill="white")
-    draw.text((900, y_start+15), "STATUS", font=f_label, fill="white")
-    
-    results = [("DEPRESSION", depression), ("ANXIETY", anxiety), ("STRESS", stress)]
-    row_y = y_start + 60
-    
-    for i, (disorder, result) in enumerate(results):
-        bg = "white" if i % 2 == 0 else "#f0f4f8"
-        draw.rectangle([(50, row_y), (width-50, row_y+120)], fill=bg)
+    y_cursor += 60
+
+    # Rows
+    for i, (condition, severity) in enumerate(results.items()):
+        bg_color = "white" if i % 2 == 0 else "#f0f4f8"
+        draw.rectangle([(MARGIN, y_cursor), (W - MARGIN, y_cursor + 120)], fill=bg_color)
         
-        if result in ['Normal', 'Mild']:
-            color = "#27ae60" 
-            status = "Low Risk"
-            fill_pct = 0.25
-        elif result == 'Moderate':
-            color = "#d35400" 
-            status = "Monitoring Req."
-            fill_pct = 0.55
+        # Determine Color & Status
+        if severity in ['Normal', 'Mild']:
+            color, status, fill_pct = "#27ae60", "Low Risk", 0.25
+        elif severity == 'Moderate':
+            color, status, fill_pct = "#d35400", "Monitoring Req.", 0.55
         else:
-            color = "#c0392b" 
-            status = "High Risk"
-            fill_pct = 0.90
-            
-        draw.text((80, row_y+40), disorder, font=f_label, fill="#333333")
-        draw.text((500, row_y+40), str(result).upper(), font=f_label, fill=color)
-        draw.text((900, row_y+40), status, font=f_val, fill="#333333")
-        
-        bar_x = 500
-        bar_y = row_y + 80
-        draw.rectangle([(bar_x, bar_y), (bar_x+300, bar_y+10)], fill="#e1e1e1")
-        draw.rectangle([(bar_x, bar_y), (bar_x+(300*fill_pct), bar_y+10)], fill=color)
-        
-        row_y += 120
+            color, status, fill_pct = "#c0392b", "High Risk", 0.90
 
-    # --- Images (Stamp & Signature) from 'img' folder ---
-    
-    # 1. Verified Stamp
-    stamp_size = 240 
-    stamp_img = Image.new('RGBA', (stamp_size, stamp_size), (0,0,0,0))
-    
-    # Path to images inside 'img' folder
-    stamp_path = os.path.join("img", "verified.png")
-    sig_path = os.path.join("img", "signature.png")
-    
+        # Draw Text
+        draw.text((80, y_cursor + 40), condition.upper(), font=f_label, fill="#333")
+        draw.text((500, y_cursor + 40), severity.upper(), font=f_label, fill=color)
+        draw.text((900, y_cursor + 40), status, font=f_val, fill="#333")
+
+        # Progress Bar
+        bar_x, bar_y = 500, y_cursor + 80
+        draw.rectangle([(bar_x, bar_y), (bar_x + 300, bar_y + 10)], fill="#e1e1e1")
+        draw.rectangle([(bar_x, bar_y), (bar_x + (300 * fill_pct), bar_y + 10)], fill=color)
+
+        y_cursor += 120
+
+    # 4. Footer & Signature
+    # Stamp Logic
     try:
-        if os.path.exists(stamp_path):
-            icon = Image.open(stamp_path).convert("RGBA")
-            icon = icon.resize((210, 210))
-            stamp_img.paste(icon, (15, 15), icon)
+        if os.path.exists("verified.png"):
+            stamp = Image.open("verified.png").convert("RGBA").resize((210, 210))
+            stamp = stamp.rotate(15, expand=True)
+            img.paste(stamp, ((W - stamp.width) // 2, H - 360), stamp)
         else:
-           
-            ds = ImageDraw.Draw(stamp_img)
-            ds.text((50, 100), "VERIFIED", font=f_label, fill="blue")
-    except Exception as e:
-        print(f"Stamp Warning: {e}")
-
-    rot_stamp = stamp_img.rotate(15, expand=True)
-    center_x = (width - rot_stamp.width) // 2
-    pos_y = height - 360 
-    img.paste(rot_stamp, (center_x, pos_y), rot_stamp)
-    
-    # 2. Custom Signature
-    try:
-        if os.path.exists(sig_path):
-            sig_img = Image.open(sig_path).convert("RGBA")
-            sig_width = 250
-            w_percent = (sig_width / float(sig_img.size[0]))
-            h_size = int((float(sig_img.size[1]) * float(w_percent)))
-            sig_img = sig_img.resize((sig_width, h_size))
-            img.paste(sig_img, (860, 1020), sig_img)
-        else:
-            # Fallback text
-            draw.text((880, 1100), "Signed", font=f_val, fill="#333333")
-    except Exception as e:
-        print(f"Signature Warning: {e}")
+            # Fallback simple text stamp
+            pass 
+    except Exception:
+        pass
 
     # Signature Line
-    draw.line([(850, 1150), (1100, 1150)], fill="#333333", width=2)
-    draw.text((880, 1160), "Authorized Signature", font=f_val, fill="#333333")
-
-    # --- Footer ---
-    draw.rectangle([(0, height-80), (width, height)], fill="#102a43")
-    draw.text((80, height-50), "Note: Generated by Logistic Regression Model (Accuracy: 99.2%). This is a computer-generated report.", font=f_footer, fill="white")
+    sig_y = 1150
+    draw.line([(850, sig_y), (1100, sig_y)], fill="#333", width=2)
+    draw.text((880, sig_y + 10), "Authorized Signature", font=f_val, fill="#333")
     
+    # Disclaimer
+    draw.rectangle([(0, H - 80), (W, H)], fill=COLOR_PRIMARY)
+    draw.text((80, H - 50), "Note: AI-Generated Report (Accuracy: 99.2%). Consult a professional for medication.", font=f_footer, fill="white")
+
     return img
 
-# --- 3. PREDICTION LOGIC ---
-def smart_assessment_final(name, age, gender, *args):
-    try:
-        # Scale inputs 0-7 -> 0-3
-        d_scaled = [int(round(x * 3 / 7)) for x in args[0:8]]
-        a_scaled = [int(round(x * 3 / 7)) for x in args[8:16]]
-        s_scaled = [int(round(x * 3 / 7)) for x in args[16:22]]
-        
-        avg_dep, avg_anx, avg_str = np.mean(d_scaled), np.mean(a_scaled), np.mean(s_scaled)
+# --- PREDICTION LOGIC ---
 
-        sample_key = 'Depression'
-        X_test_base = tuned_models[sample_key]['X_test']
-        
-        # Handle Data Loading format
-        if hasattr(X_test_base, 'iloc'):
-            base_row = X_test_base.iloc[0].copy()
-        else:
-            # Fallback if loaded as array
-            feature_names = tuned_models['Depression'].get('feature_names', [])
-            if len(feature_names) > 0:
-                base_row = pd.Series(X_test_base[0], index=feature_names)
-            else:
-                 return None 
+def prepare_input_vector(age, scores):
+    """
+    Constructs the input vector by using a reference row from the training data.
+    This ensures all feature columns are present and in the correct order.
+    """
+    sample_model = tuned_models['Depression']
+    X_test_ref = sample_model['X_test']
+    
+    # Extract a single row to use as a template
+    if hasattr(X_test_ref, 'iloc'):
+        base_row = X_test_ref.iloc[0].copy()
+    else:
+        # Fallback for numpy array, using stored feature names
+        feature_names = sample_model.get('feature_names', [])
+        if not feature_names: return None
+        base_row = pd.Series(0, index=feature_names) # Initialize with zeros
 
-        base_row['age'] = age
-        
-        # Mapping logic
-        for col in dep_cols: 
-            if col in base_row.index: base_row[col] = int(round(avg_dep))
-        for col in anx_cols: 
-            if col in base_row.index: base_row[col] = int(round(avg_anx))
-        for col in str_cols: 
-            if col in base_row.index: base_row[col] = int(round(avg_str))
-
-        input_data = base_row.values.reshape(1, -1)
-        preds = {}
-        
-        for disorder in ['Depression', 'Anxiety', 'Stress']:
-            model = tuned_models[disorder]['model']
-            le = tuned_models[disorder]['le']
-            pred_num = model.predict(input_data)[0]
+    # Update User Info
+    base_row['age'] = age
+    
+    # Map calculated scores to the respective question columns
+    avg_dep, avg_anx, avg_str = scores
+    
+    for col in COLS_DEPRESSION: 
+        if col in base_row.index: base_row[col] = avg_dep
             
-            if hasattr(le, 'inverse_transform'):
-                pred_class = le.inverse_transform([pred_num])[0]
-            else:
-                classes = ['Extremely Severe', 'Mild', 'Moderate', 'Normal', 'Severe']
-                pred_class = classes[pred_num]
-            preds[disorder] = pred_class
+    for col in COLS_ANXIETY: 
+        if col in base_row.index: base_row[col] = avg_anx
+            
+    for col in COLS_STRESS: 
+        if col in base_row.index: base_row[col] = avg_str
+            
+    return base_row.values.reshape(1, -1)
 
-        return generate_premium_report(name, age, gender, preds['Depression'], preds['Anxiety'], preds['Stress'])
+def predict_condition(model_data, input_vector):
+    """Predicts class for a single condition."""
+    model = model_data['model']
+    le = model_data['le']
+    
+    pred_idx = model.predict(input_vector)[0]
+    
+    # Decode label
+    if hasattr(le, 'inverse_transform'):
+        return le.inverse_transform([pred_idx])[0]
+    
+    # Manual fallback map if encoder is missing
+    labels = ['Extremely Severe', 'Mild', 'Moderate', 'Normal', 'Severe']
+    return labels[pred_idx] if pred_idx < len(labels) else "Unknown"
+
+def process_assessment(name, age, gender, *responses):
+    try:
+        # Normalize inputs (Scale 0-7 to 0-3 approx logic for DASS)
+        # Assuming input is raw slider value 0-7
+        scores = [int(round(x * 3 / 7)) for x in responses]
+        
+        # Split scores by category
+        dep_score = np.mean(scores[0:8])
+        anx_score = np.mean(scores[8:16])
+        str_score = np.mean(scores[16:22])
+        
+        # Prepare Data
+        input_vector = prepare_input_vector(age, (dep_score, anx_score, str_score))
+        if input_vector is None:
+            return None # Handle error gracefully
+        
+        # Run Predictions
+        results = {}
+        for condition in ['Depression', 'Anxiety', 'Stress']:
+            results[condition] = predict_condition(tuned_models[condition], input_vector)
+            
+        # Generate Image
+        return generate_report_image(name, age, gender, results)
 
     except Exception as e:
-        print(f"Logic Error: {e}")
+        print(f"Error processing assessment: {e}")
         return None
 
-# --- 4. UI LAUNCH ---
+# --- UI SETUP ---
+
+def create_slider_group(questions):
+    """Generates a list of slider components."""
+    return [gr.Slider(0, 7, step=1, label=q) for q in questions]
+
+# Question Sets
+q_depression = [
+    "Q1: No positive feeling", "Q2: Felt down-hearted", "Q3: Life meaningless", 
+    "Q4: No initiative", "Q5: Felt worthless", "Q6: Nothing to look forward", 
+    "Q7: Felt sad/depressed", "Q8: No enthusiasm"
+]
+
+q_anxiety = [
+    "Q1: Dry mouth", "Q2: Breathing difficulty", "Q3: Trembling hands", 
+    "Q4: Panic worry", "Q5: Heart racing", "Q6: Scared w/o reason", 
+    "Q7: Fear of tasks", "Q8: Choking feeling"
+]
+
+q_stress = [
+    "Q1: Hard to wind down", "Q2: Over-reactive", "Q3: Touchy/Sensitive", 
+    "Q4: Intolerant of waiting", "Q5: Nervous energy", "Q6: Agitated"
+]
+
+# Gradio Interface
 theme = gr.themes.Soft(primary_hue="sky", secondary_hue="slate")
 
-with gr.Blocks(theme=theme, title="AI Mental Health System") as demo:
+with gr.Blocks(theme=theme, title="Mental Health AI") as demo:
     gr.Markdown("# 🏥 Professional Mental Health Assessment System")
     gr.Markdown("Complete the assessment below to generate a **Certified Clinical Report**. (Scale: 0-7)")
 
     with gr.Row():
-        # INPUTS
+        # Left Column: Inputs
         with gr.Column(scale=4, variant="panel"):
-            gr.Markdown("### 1. Patient Registration")
-            i_name = gr.Textbox(label="Full Name", placeholder="e.g. Md. Nazmus Sakib")
+            gr.Markdown("### 1. Patient Details")
             with gr.Row():
-                i_age = gr.Number(label="Age", value=25, precision=0)
-                i_gender = gr.Dropdown(["Male", "Female", "Other"], label="Gender", value="Male")
+                i_name = gr.Textbox(label="Full Name", placeholder="Md. Nazmus Sakib")
+                i_age = gr.Number(label="Age", value=25)
+            
+            i_gender = gr.Dropdown(["Male", "Female", "Other"], label="Gender", value="Male")
             
             gr.Markdown("---")
-            gr.Markdown("### 2. Clinical Assessment (22 Questions)")
+            gr.Markdown("### 2. Clinical Assessment")
             
-            inputs_list = []
+            input_components = []
             
             with gr.Accordion("Depression Scale", open=True):
-                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
-                    "Q1: No positive feeling", "Q2: Felt down-hearted", "Q3: Life meaningless", "Q4: No initiative",
-                    "Q5: Felt worthless", "Q6: Nothing to look forward", "Q7: Felt sad/depressed", "Q8: No enthusiasm"]])
-
+                input_components += create_slider_group(q_depression)
+                
             with gr.Accordion("Anxiety Scale", open=False):
-                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
-                    "Q1: Dry mouth", "Q2: Breathing difficulty", "Q3: Trembling hands", "Q4: Panic worry",
-                    "Q5: Heart racing", "Q6: Scared w/o reason", "Q7: Fear of tasks", "Q8: Choking feeling"]])
-
+                input_components += create_slider_group(q_anxiety)
+                
             with gr.Accordion("Stress Scale", open=False):
-                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
-                    "Q1: Hard to wind down", "Q2: Over-reactive", "Q3: Touchy/Sensitive", 
-                    "Q4: Intolerant of waiting", "Q5: Nervous energy", "Q6: Agitated"]])
+                input_components += create_slider_group(q_stress)
             
-            btn = gr.Button("✅ Generate Verified Report", variant="primary", size="lg")
+            submit_btn = gr.Button("✅ Generate Report", variant="primary", size="lg")
 
-        # OUTPUT
+        # Right Column: Output
         with gr.Column(scale=5):
-            gr.Markdown("### 📄 Final Diagnostic Report")
-           
-            out_img = gr.Image(label="Clinical Report", type="pil")
+            gr.Markdown("### 📄 Final Report")
+            output_display = gr.Image(label="Generated Report", type="pil")
 
-    all_inputs = [i_name, i_age, i_gender] + inputs_list
-    btn.click(fn=smart_assessment_final, inputs=all_inputs, outputs=out_img)
+    # Wire up the logic
+    # First 3 inputs are manual, rest are the sliders
+    all_inputs = [i_name, i_age, i_gender] + input_components
+    submit_btn.click(fn=process_assessment, inputs=all_inputs, outputs=output_display)
 
 if __name__ == "__main__":
     demo.launch(share=True)

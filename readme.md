@@ -86,7 +86,7 @@ env/
 ## How to Run Locally
 1. Clone the repository:
 ```bash
-git clone https://github.com/<YourUsername>/Mental-Health-Diagnostic-System.git
+git clone https://github.com/engrsakib/Mental-Health-Diagnostic-System.git
 cd Mental-Health-Diagnostic-System
 ```
 
